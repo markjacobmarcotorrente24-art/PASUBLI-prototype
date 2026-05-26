@@ -1,195 +1,187 @@
 <?php
-// products.php - Handles all CRUD operations for Product/Item module
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
 require_once 'db_config.php';
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method    = $_SERVER['REQUEST_METHOD'];
+$lender_id = (int) CURRENT_LENDER_ID;   // always cast to int
 
-// Route requests based on HTTP method
 switch ($method) {
 
-    // READ - Get all products or one product
+    /* ── GET ──────────────────────────────────────────── */
     case 'GET':
-        $conn = getConnection();
-
-        // Search/filter support
-        $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+        $conn     = getConnection();
+        $search   = isset($_GET['search'])   ? trim($_GET['search'])   : '';
         $category = isset($_GET['category']) ? trim($_GET['category']) : '';
-        $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+        $id       = isset($_GET['id'])       ? (int) $_GET['id']       : 0;
 
-        if ($id > 0) {
-            // Get single product
-            $stmt = $conn->prepare("
-                SELECT p.*, CONCAT(l.lender_first_name, ' ', l.lender_last_name) AS lender_name
-                FROM product_item p
-                LEFT JOIN lender l ON p.lender_id = l.lender_id
-                WHERE p.product_id = ?
-            ");
-            $stmt->bind_param('i', $id);
+        if ($id !== 0) {
+            // Single product — both cols are int
+            $stmt = $conn->prepare(
+                "SELECT * FROM product WHERE product_id = ? AND lender_id = ?"
+            );
+            $stmt->bind_param('ii', $id, $lender_id);
             $stmt->execute();
-            $result = $stmt->get_result();
-            $product = $result->fetch_assoc();
-            echo json_encode($product ? $product : ['error' => 'Product not found']);
+            $product = $stmt->get_result()->fetch_assoc();
+            echo json_encode($product ?: ['error' => 'Product not found']);
             $stmt->close();
+
         } else {
-            // Get all products with optional search and filter
-            $sql = "
-                SELECT p.*, CONCAT(l.lender_first_name, ' ', l.lender_last_name) AS lender_name
-                FROM product_item p
-                LEFT JOIN lender l ON p.lender_id = l.lender_id
-                WHERE 1=1
-            ";
-            $params = [];
-            $types = '';
+            // List — lender_id is int ('i'), search params are strings ('s')
+            $sql    = "SELECT * FROM product WHERE lender_id = ?";
+            $params = [$lender_id];
+            $types  = 'i';
 
             if ($search !== '') {
-                $sql .= " AND (p.product_name LIKE ? OR p.description LIKE ?)";
-                $like = '%' . $search . '%';
+                $sql     .= " AND (category LIKE ? OR product_name LIKE ?)";
+                $like     = '%' . $search . '%';
                 $params[] = $like;
                 $params[] = $like;
-                $types .= 'ss';
+                $types   .= 'ss';
             }
             if ($category !== '') {
-                $sql .= " AND p.category = ?";
+                $sql     .= " AND category = ?";
                 $params[] = $category;
-                $types .= 's';
+                $types   .= 's';
             }
 
-            $sql .= " ORDER BY p.product_id DESC";
+            $sql .= " ORDER BY product_id DESC";
 
             $stmt = $conn->prepare($sql);
-            if (!empty($params)) {
-                $stmt->bind_param($types, ...$params);
-            }
+            $stmt->bind_param($types, ...$params);
             $stmt->execute();
-            $result = $stmt->get_result();
-
+            $result   = $stmt->get_result();
             $products = [];
-            while ($row = $result->fetch_assoc()) {
-                $products[] = $row;
-            }
+            while ($row = $result->fetch_assoc()) $products[] = $row;
             echo json_encode($products);
             $stmt->close();
         }
-
         $conn->close();
         break;
 
-    // CREATE - Add new product
+    /* ── POST ─────────────────────────────────────────── */
     case 'POST':
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data   = json_decode(file_get_contents('php://input'), true);
+        $errors = validateProduct($data, false);
 
-        // Basic validation
-        $errors = validateProduct($data);
         if (!empty($errors)) {
             http_response_code(400);
             echo json_encode(['errors' => $errors]);
             break;
         }
 
-        $conn = getConnection();
-        $stmt = $conn->prepare("
-            INSERT INTO product_item (lender_id, category, stock, price, product_name, description)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ");
+        $conn         = getConnection();
+        $product_id   = (int)   $data['product_id'];
+        $product_name = trim($data['product_name']);
+        $category     = trim($data['category']);
+        $stock_qty    = (int)   $data['stock_qty'];
+        $rental_price = (float) $data['rental_price'];
 
-        $lender_id = intval($data['lender_id']);
-        $category  = trim($data['category']);
-        $stock     = intval($data['stock']);
-        $price     = floatval($data['price']);
-        $name      = trim($data['product_name']);
-        $desc      = isset($data['description']) ? trim($data['description']) : '';
+        // Duplicate ID check
+        $chk = $conn->prepare("SELECT product_id FROM product WHERE product_id = ?");
+        $chk->bind_param('i', $product_id);
+        $chk->execute();
+        if ($chk->get_result()->num_rows > 0) {
+            http_response_code(400);
+            echo json_encode(['errors' => ['This Product ID already exists.']]);
+            $chk->close(); $conn->close(); break;
+        }
+        $chk->close();
 
-        $stmt->bind_param('isidss', $lender_id, $category, $stock, $price, $name, $desc);
+        // product_id=i, lender_id=i, product_name=s, category=s, stock_qty=i, rental_price=d
+        $stmt = $conn->prepare(
+            "INSERT INTO product (product_id, lender_id, product_name, category, stock_qty, rental_price)
+             VALUES (?, ?, ?, ?, ?, ?)"
+        );
+        $stmt->bind_param('iissid', $product_id, $lender_id, $product_name, $category, $stock_qty, $rental_price);
 
         if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'id' => $conn->insert_id, 'message' => 'Product added successfully']);
+            echo json_encode(['success' => true, 'id' => $product_id, 'message' => 'Product added successfully']);
         } else {
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to add product']);
+            echo json_encode(['error' => 'Failed to add product: ' . $conn->error]);
         }
-
-        $stmt->close();
-        $conn->close();
+        $stmt->close(); $conn->close();
         break;
 
-    // UPDATE - Edit existing product
+    /* ── PUT ──────────────────────────────────────────── */
     case 'PUT':
         $data = json_decode(file_get_contents('php://input'), true);
-        $id = isset($data['product_id']) ? intval($data['product_id']) : 0;
+        $id   = isset($data['product_id']) ? (int) $data['product_id'] : 0;
 
-        if ($id <= 0) {
+        if (!$id) {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid product ID']);
             break;
         }
 
-        $errors = validateProduct($data);
+        $errors = validateProduct($data, true);
         if (!empty($errors)) {
             http_response_code(400);
             echo json_encode(['errors' => $errors]);
             break;
         }
 
-        $conn = getConnection();
-        $stmt = $conn->prepare("
-            UPDATE product_item
-            SET lender_id = ?, category = ?, stock = ?, price = ?, product_name = ?, description = ?
-            WHERE product_id = ?
-        ");
+        $conn         = getConnection();
+        $product_name = trim($data['product_name']);
+        $category     = trim($data['category']);
+        $stock_qty    = (int)   $data['stock_qty'];
+        $rental_price = (float) $data['rental_price'];
 
-        $lender_id = intval($data['lender_id']);
-        $category  = trim($data['category']);
-        $stock     = intval($data['stock']);
-        $price     = floatval($data['price']);
-        $name      = trim($data['product_name']);
-        $desc      = isset($data['description']) ? trim($data['description']) : '';
-
-        $stmt->bind_param('isidssi', $lender_id, $category, $stock, $price, $name, $desc, $id);
+        // SET: product_name=s, category=s, stock_qty=i, rental_price=d
+        // WHERE: product_id=i, lender_id=i
+        $stmt = $conn->prepare(
+            "UPDATE product
+             SET product_name = ?, category = ?, stock_qty = ?, rental_price = ?
+             WHERE product_id = ? AND lender_id = ?"
+        );
+        $stmt->bind_param('ssidii', $product_name, $category, $stock_qty, $rental_price, $id, $lender_id);
 
         if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Product updated successfully']);
+            if ($conn->affected_rows > 0) {
+                echo json_encode(['success' => true, 'message' => 'Product updated successfully']);
+            } else {
+                http_response_code(404);
+                echo json_encode(['error' => 'Product not found or not yours']);
+            }
         } else {
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to update product']);
+            echo json_encode(['error' => 'Failed to update: ' . $conn->error]);
         }
-
-        $stmt->close();
-        $conn->close();
+        $stmt->close(); $conn->close();
         break;
 
-    // DELETE - Remove a product
+    /* ── DELETE ───────────────────────────────────────── */
     case 'DELETE':
-        $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-
-        if ($id <= 0) {
+        $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+        if (!$id) {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid product ID']);
             break;
         }
 
         $conn = getConnection();
-        $stmt = $conn->prepare("DELETE FROM product_item WHERE product_id = ?");
-        $stmt->bind_param('i', $id);
+        // Both product_id and lender_id are int
+        $stmt = $conn->prepare("DELETE FROM product WHERE product_id = ? AND lender_id = ?");
+        $stmt->bind_param('ii', $id, $lender_id);
 
         if ($stmt->execute()) {
             if ($conn->affected_rows > 0) {
                 echo json_encode(['success' => true, 'message' => 'Product deleted successfully']);
             } else {
                 http_response_code(404);
-                echo json_encode(['error' => 'Product not found']);
+                echo json_encode(['error' => 'Product not found or not yours']);
             }
         } else {
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to delete product']);
+            echo json_encode(['error' => 'Failed to delete: ' . $conn->error]);
         }
-
-        $stmt->close();
-        $conn->close();
+        $stmt->close(); $conn->close();
         break;
 
     default:
@@ -198,26 +190,26 @@ switch ($method) {
         break;
 }
 
-// Validation helper
-function validateProduct($data) {
+function validateProduct($data, $isEdit) {
     $errors = [];
-
-    if (empty($data['product_name']) || strlen(trim($data['product_name'])) < 2) {
-        $errors[] = 'Product name must be at least 2 characters.';
+    if (!$isEdit) {
+        $id = isset($data['product_id']) ? trim((string) $data['product_id']) : '';
+        if ($id === '' || !preg_match('/^\d{5}$/', $id)) {
+            $errors[] = 'Product ID must be exactly 5 digits.';
+        }
+    }
+    if (empty(trim($data['product_name'] ?? ''))) {
+        $errors[] = 'Product name is required.';
     }
     if (empty($data['category'])) {
         $errors[] = 'Category is required.';
     }
-    if (!isset($data['stock']) || intval($data['stock']) < 0) {
+    if (!isset($data['stock_qty']) || (int) $data['stock_qty'] < 0) {
         $errors[] = 'Stock must be 0 or greater.';
     }
-    if (empty($data['price']) || floatval($data['price']) <= 0) {
+    if (empty($data['rental_price']) || (float) $data['rental_price'] <= 0) {
         $errors[] = 'Price must be greater than 0.';
     }
-    if (empty($data['lender_id']) || intval($data['lender_id']) <= 0) {
-        $errors[] = 'Please select a lender.';
-    }
-
     return $errors;
 }
 ?>
