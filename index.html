@@ -3,218 +3,359 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PASUBLI: A WEB-BASED RENTAL PLATFORM FOR APPAREL IN BICOL</title>
-    <link rel="stylesheet" href="css/style.css" />
+    <title>PASUBLI — My Listings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500&family=Jost:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css" />
   </head>
   <body>
-    <!-- ===== HEADER ===== -->
-    <header class="header">
-      <h1>PASUBLI</h1>
-      <span>Rental System Module (Prototype)</span>
-    </header>
 
-    <!-- ===== MAIN CONTENT ===== -->
-    <div class="container">
-      <!-- Stats Row -->
-      <div class="stats-row">
-        <div class="stat-card">
-          <div class="stat-label">Total Products</div>
-          <div class="stat-value blue" id="statTotal">—</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Categories</div>
-          <div class="stat-value green" id="statCategories">—</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Total Stock</div>
-          <div class="stat-value yellow" id="statStock">—</div>
-        </div>
-      </div>
+    <!-- ── GRADIENT SCENE ──────────────────────────────── -->
+    <div class="scene">
+      <div class="scene-orb scene-orb--1"></div>
+      <div class="scene-orb scene-orb--2"></div>
+      <div class="scene-orb scene-orb--3"></div>
+      <div class="scene-noise"></div>
+    </div>
 
-      <!-- Products Card -->
-      <div class="card">
-        <div class="card-title">Product List</div>
+    <div class="app-shell">
 
-        <!-- Toolbar -->
-        <div class="toolbar">
-          <input
-            type="text"
-            id="searchInput"
-            placeholder="Search by name, description, or lender..."
-          />
-          <select id="categoryFilter">
-            <option value="">All Categories</option>
-            <option value="casual-wear">Casual Wear</option>
-            <option value="office-wear">Office Wear</option>
-            <option value="formal-wear">Formal Wear</option>
-            <option value="business-casual">Business Casual</option>
-            <option value="sports">Sports</option>
-            <option value="loungewear">Loungewear</option>
-            <option value="others">Others</option>
-          </select>
-          <div class="toolbar-right">
-            <button class="btn btn-primary" id="addBtn">+ Add Product</button>
+      <!-- ── SIDEBAR ─────────────────────────────────── -->
+      <nav class="sidebar">
+        <div class="sidebar-brand">
+          <span class="brand-letter">P</span>
+        </div>
+
+        <ul class="sidebar-nav">
+          <li>
+            <button class="nav-item active" data-label="Products" data-module="products">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                <line x1="7" y1="7" x2="7.01" y2="7"/>
+              </svg>
+              <span class="nav-label">Products</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-item" data-label="Orders" data-module="orders">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                <rect x="9" y="3" width="6" height="4" rx="1"/>
+                <path d="M9 12h6M9 16h4"/>
+              </svg>
+              <span class="nav-label">Orders</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-item" data-label="Customers" data-module="customers">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              <span class="nav-label">Customers</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-item" data-label="Analytics" data-module="analytics">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+              <span class="nav-label">Analytics</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-item" data-label="Calendar" data-module="calendar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <span class="nav-label">Calendar</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-item" data-label="Messages" data-module="messages">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span class="nav-label">Messages</span>
+            </button>
+          </li>
+        </ul>
+
+        <div class="sidebar-footer">
+          <button class="nav-item" data-label="Settings" data-module="settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            <span class="nav-label">Settings</span>
+          </button>
+          <div class="sidebar-avatar">
+            <span>L</span>
           </div>
         </div>
 
-        <!-- Table -->
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Product Name</th>
-                <th>Category</th>
-                <th>Lender</th>
-                <th>Price</th>
-                <th>Stock</th>
-                <th>Date Added</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="tableBody">
-              <tr>
-                <td
-                  colspan="8"
-                  style="text-align: center; padding: 30px; color: #64748b"
-                >
-                  Loading...
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <!-- /card -->
-    </div>
-    <!-- /container -->
+        <div class="nav-tooltip" id="navTooltip"></div>
+      </nav>
 
-    <!-- ===== ADD / EDIT MODAL ===== -->
+      <!-- ── MAIN ─────────────────────────────────────── -->
+      <div class="main-content">
+
+        <!-- ── TOP BAR ──────────────────────────────────── -->
+        <header class="topbar">
+          <div class="topbar-breadcrumb">
+            <span class="breadcrumb-root">Pasubli</span>
+            <svg class="breadcrumb-sep" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+            <span class="breadcrumb-current">Rental Marketplace</span>
+            <svg class="breadcrumb-sep" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+            <span class="breadcrumb-page">My Listings</span>
+          </div>
+          <div class="topbar-right">
+            <button class="topbar-search-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </button>
+            <div class="topbar-divider"></div>
+            <div class="topbar-date" id="topbarDate"></div>
+          </div>
+        </header>
+
+        <!-- ── PAGE BODY ─────────────────────────────────── -->
+        <div class="page-body">
+
+          <!-- ── PAGE HEADING (asymmetric) ─────────────── -->
+          <div class="page-heading">
+            <div class="page-heading-left">
+              <p class="page-eyebrow">Product Catalogue</p>
+              <h1 class="page-title">My <em>Listings</em></h1>
+              <p class="page-desc">Manage your rental inventory — view, add, edit and archive items available for lease.</p>
+            </div>
+            <div class="page-heading-right">
+              <button class="btn btn-primary" id="addBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                New Listing
+              </button>
+            </div>
+          </div>
+
+          <!-- ── STATS + TABLE LAYOUT ───────────────────── -->
+          <div class="workspace">
+
+            <!-- Stats column (left side, vertically stacked) -->
+            <aside class="stats-aside">
+              <div class="stat-pill">
+                <div class="stat-pill-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h6l-1 8H17"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                </div>
+                <div class="stat-pill-body">
+                  <span class="stat-pill-label">Total Listings</span>
+                  <span class="stat-pill-value" id="statTotal">—</span>
+                </div>
+              </div>
+
+              <div class="stat-pill">
+                <div class="stat-pill-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 6h16M4 10h16M4 14h8"/><circle cx="17" cy="17" r="3"/><path d="m19.5 19.5 1.5 1.5"/></svg>
+                </div>
+                <div class="stat-pill-body">
+                  <span class="stat-pill-label">Categories</span>
+                  <span class="stat-pill-value" id="statCategories">—</span>
+                </div>
+              </div>
+
+              <div class="stat-pill">
+                <div class="stat-pill-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 8h14M5 8a2 2 0 1 0-4 0v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 1 0-4 0m-4 0V6a2 2 0 1 0-4 0v2"/></svg>
+                </div>
+                <div class="stat-pill-body">
+                  <span class="stat-pill-label">Total Stock</span>
+                  <span class="stat-pill-value" id="statStock">—</span>
+                </div>
+              </div>
+
+              <div class="aside-divider"></div>
+
+              <div class="aside-filter-label">Filter by Category</div>
+              <select id="categoryFilter" class="aside-select">
+                <option value="">All Categories</option>
+                <option value="Formal Wear">Formal Wear</option>
+                <option value="Casual Wear">Casual Wear</option>
+                <option value="Wedding Dress">Wedding Dress</option>
+                <option value="Gown">Gown</option>
+                <option value="Suit">Suit</option>
+                <option value="Costume">Costume</option>
+                <option value="Other">Other</option>
+              </select>
+            </aside>
+
+            <!-- Main table panel -->
+            <div class="table-panel glass">
+
+              <div class="table-panel-header">
+                <div class="table-panel-title">
+                  <span>Active Listings</span>
+                  <span class="table-panel-count" id="listingCount">—</span>
+                </div>
+                <div class="search-wrap">
+                  <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  <input type="text" id="searchInput" placeholder="Search listings…" />
+                </div>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Product Name</th>
+                      <th>Category</th>
+                      <th>Rental Price</th>
+                      <th>Stock</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tableBody">
+                    <tr>
+                      <td colspan="6" class="td-loading">Loading…</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div><!-- /table-panel -->
+
+          </div><!-- /workspace -->
+
+        </div><!-- /page-body -->
+      </div><!-- /main-content -->
+    </div><!-- /app-shell -->
+
+    <!-- ── ADD / EDIT MODAL ──────────────────────────── -->
     <div class="modal-overlay" id="formModal">
-      <div class="modal">
+      <div class="modal glass">
+        <div class="modal-stripe"></div>
         <div class="modal-header">
-          <h2 id="formModalTitle">Add New Product</h2>
-          <button class="modal-close" onclick="closeFormModal()">×</button>
+          <div>
+            <p class="modal-eyebrow">Rental Inventory</p>
+            <h2 id="formModalTitle">Add New Listing</h2>
+          </div>
+          <button class="modal-close" onclick="closeFormModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
         <div class="modal-body">
-          <!-- Error alert -->
           <div class="alert alert-danger" id="formAlert"></div>
-
           <form id="productForm" onsubmit="return false;">
-            <!-- Product Name -->
-            <div class="form-group">
-              <label>Product Name <span class="required">*</span></label>
-              <input
-                type="text"
-                id="product_name"
-                class="form-control"
-                placeholder="e.g., Foldable Table"
-                maxlength="150"
-              />
-              <div class="field-error" id="err_name"></div>
-            </div>
 
-            <!-- Category -->
-            <div class="form-group">
-              <label>Category <span class="required">*</span></label>
-              <select id="category" class="form-control">
-                <option value="">-- Select Category --</option>
-                <option value="Electronics">Electronics</option>
-                <option value="Furniture">Furniture</option>
-                <option value="Appliances">Appliances</option>
-                <option value="Tools">Tools</option>
-                <option value="Sports">Sports</option>
-                <option value="Clothing">Clothing</option>
-                <option value="Others">Others</option>
-              </select>
-              <div class="field-error" id="err_category"></div>
-            </div>
-
-            <!-- Lender -->
-            <div class="form-group">
-              <label>Lender <span class="required">*</span></label>
-              <select id="lender_id" class="form-control">
-                <option value="">-- Select Lender --</option>
-              </select>
-              <div class="field-error" id="err_lender"></div>
-            </div>
-
-            <!-- Price & Stock -->
             <div class="form-row">
               <div class="form-group">
-                <label>Price (₱) <span class="required">*</span></label>
-                <input
-                  type="number"
-                  id="price"
-                  class="form-control"
-                  placeholder="0.00"
-                  min="0.01"
-                  step="0.01"
-                />
-                <div class="field-error" id="err_price"></div>
+                <label>Product ID <span class="required">*</span></label>
+                <input type="number" id="product_id" class="form-control"
+                  placeholder="e.g. 10001" min="10000" max="99999" />
+                <div class="field-error" id="err_product_id"></div>
               </div>
               <div class="form-group">
-                <label>Stock <span class="required">*</span></label>
-                <input
-                  type="number"
-                  id="stock"
-                  class="form-control"
-                  placeholder="0"
-                  min="0"
-                />
-                <div class="field-error" id="err_stock"></div>
+                <label>Category <span class="required">*</span></label>
+                <select id="category" class="form-control">
+                  <option value="">— Select —</option>
+                  <option value="Formal Wear">Formal Wear</option>
+                  <option value="Casual Wear">Casual Wear</option>
+                  <option value="Wedding Dress">Wedding Dress</option>
+                  <option value="Gown">Gown</option>
+                  <option value="Suit">Suit</option>
+                  <option value="Costume">Costume</option>
+                  <option value="Other">Other</option>
+                </select>
+                <div class="field-error" id="err_category"></div>
               </div>
             </div>
 
-            <!-- Description -->
             <div class="form-group">
-              <label>Description</label>
-              <textarea
-                id="description"
-                class="form-control"
-                placeholder="Optional short description..."
-                rows="3"
-              ></textarea>
+              <label>Product Name <span class="required">*</span></label>
+              <input type="text" id="product_name" class="form-control"
+                placeholder="e.g. Barong Tagalog Set" maxlength="50" />
+              <div class="field-error" id="err_product_name"></div>
             </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Rental Price (₱) <span class="required">*</span></label>
+                <input type="number" id="rental_price" class="form-control"
+                  placeholder="0.00" min="0.01" step="0.01" />
+                <div class="field-error" id="err_rental_price"></div>
+              </div>
+              <div class="form-group">
+                <label>Stock Qty <span class="required">*</span></label>
+                <input type="number" id="stock_qty" class="form-control"
+                  placeholder="0" min="0" />
+                <div class="field-error" id="err_stock_qty"></div>
+              </div>
+            </div>
+
           </form>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="closeFormModal()">
-            Cancel
-          </button>
-          <button class="btn btn-primary" id="saveBtn">Save Product</button>
+          <button class="btn btn-ghost" onclick="closeFormModal()">Cancel</button>
+          <button class="btn btn-primary" id="saveBtn">Save Listing</button>
         </div>
       </div>
     </div>
 
-    <!-- ===== CONFIRM DELETE MODAL ===== -->
+    <!-- ── CONFIRM DELETE MODAL ──────────────────────── -->
     <div class="modal-overlay" id="confirmModal">
-      <div class="modal">
+      <div class="modal modal-sm glass">
+        <div class="modal-stripe modal-stripe--red"></div>
         <div class="modal-header">
-          <h2>Confirm Deletion</h2>
-          <button class="modal-close" onclick="closeConfirmModal()">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="confirm-icon">🗑️</div>
-          <p class="confirm-msg">
-            Are you sure you want to delete <strong id="confirmName"></strong>?
-          </p>
-          <p class="confirm-sub">This action cannot be undone.</p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="closeConfirmModal()">
-            Cancel
+          <div>
+            <p class="modal-eyebrow">Confirm Action</p>
+            <h2>Delete Listing</h2>
+          </div>
+          <button class="modal-close" onclick="closeConfirmModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
-          <button class="btn btn-danger" id="confirmDeleteBtn">
-            Yes, Delete
-          </button>
+        </div>
+        <div class="modal-body modal-body--center">
+          <div class="confirm-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </div>
+          <p class="confirm-msg">Remove <strong id="confirmName"></strong> from your listings?</p>
+          <p class="confirm-sub">This action is permanent and cannot be reversed.</p>
+        </div>
+        <div class="modal-footer modal-footer--center">
+          <button class="btn btn-ghost" onclick="closeConfirmModal()">Cancel</button>
+          <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
         </div>
       </div>
     </div>
 
-    <!-- ===== TOAST NOTIFICATIONS ===== -->
-    <div class="toast-container" id="toastContainer"></div>
+    <!-- ── NOT IMPLEMENTED MODAL ─────────────────────── -->
+    <div class="modal-overlay" id="notImplModal">
+      <div class="modal modal-sm glass">
+        <div class="modal-stripe"></div>
+        <div class="modal-header">
+          <div>
+            <p class="modal-eyebrow">Navigation</p>
+            <h2 id="notImplTitle">Module</h2>
+          </div>
+          <button class="modal-close" onclick="closeNotImpl()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="modal-body modal-body--center" style="padding:28px 26px;">
+          <div class="not-impl-icon">🚧</div>
+          <p class="not-impl-msg">This module is not yet available.</p>
+        </div>
+        <div class="modal-footer modal-footer--center">
+          <button class="btn btn-primary" onclick="closeNotImpl()">Understood</button>
+        </div>
+      </div>
+    </div>
 
+    <div class="toast-container" id="toastContainer"></div>
     <script src="js/app.js"></script>
   </body>
 </html>
