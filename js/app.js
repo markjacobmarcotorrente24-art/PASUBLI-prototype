@@ -1,362 +1,391 @@
-// app.js - Product/Item CRUD Module Logic
+/* ─────────────────────────────────────────────────────────
+   PASUBLI — app.js
+   Handles: PHP/MySQL API CRUD, search/filter, modals, toasts
+───────────────────────────────────────────────────────── */
+const API_URL = "php/products.php";
 
-// ---- Configuration ----
-// Change this to match your server path
-const API_BASE = 'php/products.php';
-const LENDERS_API = 'php/lenders.php';
+/* ── State ─────────────────────────────────────────────── */
+let listings   = [];
+let editingId  = null;
+let deletingId = null;
 
-// ---- State ----
-let allProducts = [];      // stores full list for client-side filter
-let editingId = null;      // product_id being edited (null = adding new)
-let deletingId = null;     // product_id to delete
+/* ── DOM refs ──────────────────────────────────────────── */
+const tableBody        = document.getElementById('tableBody');
+const searchInput      = document.getElementById('searchInput');
+const categoryFilter   = document.getElementById('categoryFilter');
+const addBtn           = document.getElementById('addBtn');
+const saveBtn          = document.getElementById('saveBtn');
+const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
-// ---- DOM References ----
-const tableBody       = document.getElementById('tableBody');
-const searchInput     = document.getElementById('searchInput');
-const categoryFilter  = document.getElementById('categoryFilter');
-const addBtn          = document.getElementById('addBtn');
+const statTotal      = document.getElementById('statTotal');
+const statCategories = document.getElementById('statCategories');
+const statStock      = document.getElementById('statStock');
+const listingCount   = document.getElementById('listingCount');
 
-const formModal       = document.getElementById('formModal');
-const formModalTitle  = document.getElementById('formModalTitle');
-const productForm     = document.getElementById('productForm');
-const saveBtn         = document.getElementById('saveBtn');
-const formAlert       = document.getElementById('formAlert');
+const formModal      = document.getElementById('formModal');
+const confirmModal   = document.getElementById('confirmModal');
+const formAlert      = document.getElementById('formAlert');
+const confirmName    = document.getElementById('confirmName');
+const formModalTitle = document.getElementById('formModalTitle');
 
-const confirmModal    = document.getElementById('confirmModal');
-const confirmName     = document.getElementById('confirmName');
-const confirmDeleteBtn= document.getElementById('confirmDeleteBtn');
+const fields = {
+  product_id:   document.getElementById('product_id'),
+  product_name: document.getElementById('product_name'),
+  category:     document.getElementById('category'),
+  rental_price: document.getElementById('rental_price'),
+  stock_qty:    document.getElementById('stock_qty'),
+};
 
-const statTotal       = document.getElementById('statTotal');
-const statCategories  = document.getElementById('statCategories');
-const statStock       = document.getElementById('statStock');
+const errors = {
+  product_id:   document.getElementById('err_product_id'),
+  product_name: document.getElementById('err_product_name'),
+  category:     document.getElementById('err_category'),
+  rental_price: document.getElementById('err_rental_price'),
+  stock_qty:    document.getElementById('err_stock_qty'),
+};
 
-// ---- Init ----
-document.addEventListener('DOMContentLoaded', function() {
-    loadLenders();
-    loadProducts();
-    bindEvents();
-});
-
-function bindEvents() {
-    addBtn.addEventListener('click', openAddModal);
-    searchInput.addEventListener('input', filterTable);
-    categoryFilter.addEventListener('change', filterTable);
-    saveBtn.addEventListener('click', saveProduct);
-    confirmDeleteBtn.addEventListener('click', confirmDelete);
-
-    // Close modals on overlay click
-    formModal.addEventListener('click', function(e) {
-        if (e.target === formModal) closeFormModal();
-    });
-    confirmModal.addEventListener('click', function(e) {
-        if (e.target === confirmModal) closeConfirmModal();
-    });
+/* ── Topbar date ───────────────────────────────────────── */
+const topbarDate = document.getElementById('topbarDate');
+if (topbarDate) {
+  const now = new Date();
+  topbarDate.textContent = now.toLocaleDateString('en-PH', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+  });
 }
 
-// ---- Load Lenders (for dropdown) ----
-function loadLenders() {
-    fetch(LENDERS_API)
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-            var select = document.getElementById('lender_id');
-            data.forEach(function(l) {
-                var opt = document.createElement('option');
-                opt.value = l.lender_id;
-                opt.textContent = l.lender_name;
-                select.appendChild(opt);
-            });
-        })
-        .catch(function() {
-            showToast('Could not load lenders list.', 'error');
-        });
-}
-
-// ---- READ: Load Products ----
-function loadProducts() {
-    tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#64748b;">Loading...</td></tr>';
-
-    fetch(API_BASE)
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-            allProducts = data;
-            updateStats(data);
-            renderTable(data);
-        })
-        .catch(function() {
-            tableBody.innerHTML = '<tr><td colspan="8"><div class="empty-state">⚠️<p>Failed to load products. Check your server connection.</p></div></td></tr>';
-        });
-}
-
-function updateStats(products) {
-    statTotal.textContent = products.length;
-
-    var cats = {};
-    var totalStock = 0;
-    products.forEach(function(p) {
-        cats[p.category] = true;
-        totalStock += parseInt(p.stock);
-    });
-
-    statCategories.textContent = Object.keys(cats).length;
-    statStock.textContent = totalStock;
-}
-
-function renderTable(products) {
-    if (products.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="8"><div class="empty-state">📦<p>No products found.</p></div></td></tr>';
-        return;
+/* ── API helpers ───────────────────────────────────────── */
+async function apiFetch(url, options = {}) {
+  try {
+    const res = await fetch(url, options);
+    const data = await res.json();
+    if (!res.ok) {
+      const msg = data.error || (data.errors ? data.errors.join(' ') : 'Server error');
+      throw new Error(msg);
     }
-
-    tableBody.innerHTML = '';
-    products.forEach(function(p) {
-        var row = document.createElement('tr');
-        row.innerHTML =
-            '<td><strong>#' + p.product_id + '</strong></td>' +
-            '<td>' + escapeHtml(p.product_name) + '</td>' +
-            '<td><span class="badge badge-blue">' + escapeHtml(p.category) + '</span></td>' +
-            '<td>' + escapeHtml(p.lender_name || '—') + '</td>' +
-            '<td>' + formatCurrency(p.price) + '</td>' +
-            '<td>' + getStockBadge(p.stock) + '</td>' +
-            '<td style="font-size:12px;color:#64748b;">' + formatDate(p.created_at) + '</td>' +
-            '<td>' +
-                '<div class="actions">' +
-                    '<button class="btn btn-primary btn-sm" onclick="openEditModal(' + p.product_id + ')">Edit</button>' +
-                    '<button class="btn btn-danger  btn-sm" onclick="openConfirmModal(' + p.product_id + ', \'' + escapeHtml(p.product_name) + '\')">Delete</button>' +
-                '</div>' +
-            '</td>';
-        tableBody.appendChild(row);
-    });
+    return data;
+  } catch (err) {
+    throw err;
+  }
 }
 
-function getStockBadge(stock) {
-    stock = parseInt(stock);
-    if (stock === 0)   return '<span class="badge badge-red">'    + stock + ' (Out)</span>';
-    if (stock <= 3)    return '<span class="badge badge-yellow">'  + stock + ' (Low)</span>';
-    return '<span class="badge badge-green">' + stock + '</span>';
+/* ── Load listings from DB ─────────────────────────────── */
+async function loadListings() {
+  setTableLoading();
+  try {
+    const params = new URLSearchParams();
+    const q   = searchInput.value.trim();
+    const cat = categoryFilter.value;
+    if (q)   params.set('search', q);
+    if (cat) params.set('category', cat);
+
+    listings = await apiFetch(`${API_URL}?${params.toString()}`);
+    renderTable();
+  } catch (err) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="6">
+          <div class="empty-state">
+            <div class="empty-state-icon">◈</div>
+            <p>Could not load listings</p>
+            <p>${escHtml(err.message)}</p>
+          </div>
+        </td>
+      </tr>`;
+    showToast('Failed to load listings: ' + err.message, 'error');
+  }
 }
 
-// ---- Search / Filter (client-side) ----
-function filterTable() {
-    var search = searchInput.value.toLowerCase().trim();
-    var cat    = categoryFilter.value;
-
-    var filtered = allProducts.filter(function(p) {
-        var matchSearch = !search ||
-            p.product_name.toLowerCase().includes(search) ||
-            (p.description && p.description.toLowerCase().includes(search)) ||
-            (p.lender_name && p.lender_name.toLowerCase().includes(search));
-        var matchCat = !cat || p.category === cat;
-        return matchSearch && matchCat;
-    });
-
-    renderTable(filtered);
+/* ── Stats ─────────────────────────────────────────────── */
+function updateStats() {
+  statTotal.textContent      = listings.length;
+  statCategories.textContent = new Set(listings.map(l => l.category)).size;
+  statStock.textContent      = listings.reduce((s, l) => s + Number(l.stock_qty), 0).toLocaleString();
+  if (listingCount) listingCount.textContent = listings.length;
 }
 
-// ---- CREATE: Open Add Modal ----
-function openAddModal() {
-    editingId = null;
-    formModalTitle.textContent = 'Add New Product';
-    productForm.reset();
-    hideFormAlert();
-    clearFieldErrors();
-    formModal.classList.add('active');
-    document.getElementById('product_name').focus();
+/* ── Render table ──────────────────────────────────────── */
+function setTableLoading() {
+  tableBody.innerHTML = `<tr><td colspan="6" class="td-loading">Loading…</td></tr>`;
 }
 
-// ---- UPDATE: Open Edit Modal ----
-function openEditModal(id) {
-    editingId = id;
-    formModalTitle.textContent = 'Edit Product';
-    hideFormAlert();
-    clearFieldErrors();
+function renderTable() {
+  updateStats();
 
-    // Find product from local list
-    var product = allProducts.find(function(p) { return p.product_id == id; });
-    if (!product) { showToast('Product not found.', 'error'); return; }
+  if (!listings.length) {
+    const msg = searchInput.value || categoryFilter.value
+      ? 'No listings match your search.'
+      : 'Click <strong style="color:#7aa0ff">+ New Listing</strong> to get started.';
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="6">
+          <div class="empty-state">
+            <div class="empty-state-icon">◈</div>
+            <p>Nothing here yet</p>
+            <p>${msg}</p>
+          </div>
+        </td>
+      </tr>`;
+    return;
+  }
 
-    // Populate form
-    document.getElementById('product_name').value = product.product_name;
-    document.getElementById('category').value      = product.category;
-    document.getElementById('lender_id').value     = product.lender_id;
-    document.getElementById('price').value         = product.price;
-    document.getElementById('stock').value         = product.stock;
-    document.getElementById('description').value   = product.description || '';
-
-    formModal.classList.add('active');
+  tableBody.innerHTML = listings.map(l => `
+    <tr>
+      <td>#${escHtml(String(l.product_id))}</td>
+      <td>${escHtml(l.product_name)}</td>
+      <td><span class="badge-cat">${escHtml(l.category)}</span></td>
+      <td class="price-cell">₱${Number(l.rental_price).toFixed(2)}</td>
+      <td>${Number(l.stock_qty).toLocaleString()}</td>
+      <td>
+        <div class="td-actions">
+          <button class="btn btn-edit"   onclick="openEdit('${escHtml(String(l.product_id))}')">Edit</button>
+          <button class="btn btn-delete" onclick="openConfirm('${escHtml(String(l.product_id))}', '${escHtml(l.product_name)}')">Delete</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
 }
 
-// ---- SAVE (Create or Update) ----
-function saveProduct() {
-    clearFieldErrors();
-    hideFormAlert();
+/* ── Validation ────────────────────────────────────────── */
+function clearErrors() {
+  formAlert.textContent = '';
+  Object.values(errors).forEach(el => { el.textContent = ''; });
+  Object.values(fields).forEach(el => el.classList.remove('input-error'));
+}
 
-    var data = {
-        product_name: document.getElementById('product_name').value.trim(),
-        category:     document.getElementById('category').value.trim(),
-        lender_id:    document.getElementById('lender_id').value,
-        price:        document.getElementById('price').value,
-        stock:        document.getElementById('stock').value,
-        description:  document.getElementById('description').value.trim()
-    };
+function setError(field, msg) {
+  if (errors[field]) errors[field].textContent = msg;
+  if (fields[field]) fields[field].classList.add('input-error');
+}
 
-    // Client-side validation
-    var valid = true;
-    if (!data.product_name || data.product_name.length < 2) {
-        showFieldError('err_name', 'Product name must be at least 2 characters.');
-        valid = false;
+function validateForm() {
+  clearErrors();
+  let valid = true;
+
+  const pid   = fields.product_id.value.trim();
+  const name  = fields.product_name.value.trim();
+  const cat   = fields.category.value;
+  const price = fields.rental_price.value;
+  const qty   = fields.stock_qty.value;
+
+  if (!editingId) {
+    if (!pid) {
+      setError('product_id', 'Product ID is required.');
+      valid = false;
+    } else if (!/^\d{5}$/.test(pid)) {
+      setError('product_id', 'Must be exactly 5 digits.');
+      valid = false;
     }
-    if (!data.category) {
-        showFieldError('err_category', 'Please select a category.');
-        valid = false;
-    }
-    if (!data.lender_id) {
-        showFieldError('err_lender', 'Please select a lender.');
-        valid = false;
-    }
-    if (!data.price || parseFloat(data.price) <= 0) {
-        showFieldError('err_price', 'Price must be greater than 0.');
-        valid = false;
-    }
-    if (data.stock === '' || parseInt(data.stock) < 0) {
-        showFieldError('err_stock', 'Stock must be 0 or more.');
-        valid = false;
-    }
-    if (!valid) return;
+  }
 
-    // Determine method and URL
-    var method = 'POST';
-    if (editingId !== null) {
-        method = 'PUT';
-        data.product_id = editingId;
-    }
+  if (!name) {
+    setError('product_name', 'Product name is required.');
+    valid = false;
+  }
 
-    saveBtn.disabled = true;
-    saveBtn.innerHTML = '<span class="spinner"></span> Saving...';
+  if (!cat) {
+    setError('category', 'Please select a category.');
+    valid = false;
+  }
 
-    fetch(API_BASE, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    })
-    .then(function(res) { return res.json(); })
-    .then(function(result) {
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Save Product';
+  if (!price || isNaN(price) || Number(price) <= 0) {
+    setError('rental_price', 'Enter a valid price greater than 0.');
+    valid = false;
+  }
 
-        if (result.success) {
-            closeFormModal();
-            loadProducts();
-            showToast(result.message, 'success');
-        } else if (result.errors) {
-            showFormAlert(result.errors.join('<br>'));
-        } else {
-            showFormAlert(result.error || 'An error occurred.');
-        }
-    })
-    .catch(function() {
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Save Product';
-        showFormAlert('Network error. Please try again.');
-    });
+  if (qty === '' || isNaN(qty) || Number(qty) < 0) {
+    setError('stock_qty', 'Enter a valid quantity (0 or more).');
+    valid = false;
+  }
+
+  return valid;
 }
 
-// ---- DELETE ----
-function openConfirmModal(id, name) {
-    deletingId = id;
-    confirmName.textContent = name;
-    confirmModal.classList.add('active');
+/* ── Add modal ─────────────────────────────────────────── */
+function openAdd() {
+  editingId = null;
+  clearErrors();
+  formModalTitle.textContent = 'Add New Listing';
+  Object.values(fields).forEach(f => { f.value = ''; f.disabled = false; });
+  openModal(formModal);
 }
 
-function confirmDelete() {
-    if (!deletingId) return;
+/* ── Edit modal ────────────────────────────────────────── */
+async function openEdit(id) {
+  try {
+    const listing = await apiFetch(`${API_URL}?id=${encodeURIComponent(id)}`);
+    if (listing.error) { showToast(listing.error, 'error'); return; }
 
-    confirmDeleteBtn.disabled = true;
-    confirmDeleteBtn.innerHTML = '<span class="spinner"></span> Deleting...';
+    editingId = String(listing.product_id);
+    clearErrors();
+    formModalTitle.textContent = 'Edit Listing';
 
-    fetch(API_BASE + '?id=' + deletingId, { method: 'DELETE' })
-        .then(function(res) { return res.json(); })
-        .then(function(result) {
-            confirmDeleteBtn.disabled = false;
-            confirmDeleteBtn.textContent = 'Yes, Delete';
+    fields.product_id.value    = listing.product_id;
+    fields.product_id.disabled = true;
+    fields.product_name.value  = listing.product_name;
+    fields.category.value      = listing.category;
+    fields.rental_price.value  = listing.rental_price;
+    fields.stock_qty.value     = listing.stock_qty;
 
-            closeConfirmModal();
-            if (result.success) {
-                loadProducts();
-                showToast(result.message, 'success');
-            } else {
-                showToast(result.error || 'Delete failed.', 'error');
-            }
-        })
-        .catch(function() {
-            confirmDeleteBtn.disabled = false;
-            confirmDeleteBtn.textContent = 'Yes, Delete';
-            showToast('Network error. Please try again.', 'error');
-        });
+    openModal(formModal);
+  } catch (err) {
+    showToast('Could not load product: ' + err.message, 'error');
+  }
 }
 
-// ---- Modal Helpers ----
 function closeFormModal() {
-    formModal.classList.remove('active');
-    productForm.reset();
-    editingId = null;
+  closeModal(formModal);
+  editingId = null;
+  clearErrors();
+  Object.values(fields).forEach(f => { f.disabled = false; });
+}
+
+/* ── Save (POST / PUT) ─────────────────────────────────── */
+async function handleSave() {
+  if (!validateForm()) return;
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+
+  const payload = {
+    product_id:   editingId || fields.product_id.value.trim(),
+    product_name: fields.product_name.value.trim(),
+    category:     fields.category.value,
+    rental_price: parseFloat(fields.rental_price.value),
+    stock_qty:    parseInt(fields.stock_qty.value, 10),
+  };
+
+  try {
+    if (editingId) {
+      await apiFetch(API_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      showToast('Listing updated successfully.', 'success');
+    } else {
+      await apiFetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      showToast('New listing added.', 'success');
+    }
+    closeFormModal();
+    await loadListings();
+  } catch (err) {
+    formAlert.textContent = err.message;
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save Listing';
+  }
+}
+
+/* ── Delete modal ──────────────────────────────────────── */
+function openConfirm(id, name) {
+  deletingId = id;
+  confirmName.textContent = name ? `"${name}"` : `Product #${id}`;
+  openModal(confirmModal);
 }
 
 function closeConfirmModal() {
-    confirmModal.classList.remove('active');
-    deletingId = null;
+  closeModal(confirmModal);
+  deletingId = null;
 }
 
-// ---- Alert / Error Helpers ----
-function showFormAlert(msg) {
-    formAlert.innerHTML = msg;
-    formAlert.classList.add('active');
-}
-function hideFormAlert() {
-    formAlert.classList.remove('active');
-    formAlert.textContent = '';
-}
-function showFieldError(id, msg) {
-    var el = document.getElementById(id);
-    if (el) { el.textContent = msg; el.classList.add('active'); }
-}
-function clearFieldErrors() {
-    document.querySelectorAll('.field-error').forEach(function(el) {
-        el.classList.remove('active');
-        el.textContent = '';
-    });
+async function handleDelete() {
+  if (!deletingId) return;
+  confirmDeleteBtn.disabled = true;
+  confirmDeleteBtn.textContent = 'Deleting…';
+
+  try {
+    await apiFetch(`${API_URL}?id=${encodeURIComponent(deletingId)}`, { method: 'DELETE' });
+    showToast('Listing deleted.', 'error');
+    closeConfirmModal();
+    await loadListings();
+  } catch (err) {
+    showToast('Delete failed: ' + err.message, 'error');
+    closeConfirmModal();
+  } finally {
+    confirmDeleteBtn.disabled = false;
+    confirmDeleteBtn.textContent = 'Delete';
+  }
 }
 
-// ---- Toast Notification ----
-function showToast(msg, type) {
-    type = type || 'success';
-    var container = document.getElementById('toastContainer');
-    var toast = document.createElement('div');
-    toast.className = 'toast ' + type;
-    toast.innerHTML = (type === 'success' ? '✓ ' : '✕ ') + msg;
-    container.appendChild(toast);
-    setTimeout(function() {
-        toast.style.opacity = '0';
-        toast.style.transition = 'opacity 0.3s';
-        setTimeout(function() { container.removeChild(toast); }, 300);
-    }, 3000);
+/* ── Modal helpers ─────────────────────────────────────── */
+function openModal(el)  { el.classList.add('open'); }
+function closeModal(el) { el.classList.remove('open'); }
+
+/* ── Toast ─────────────────────────────────────────────── */
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add('out');
+    toast.addEventListener('animationend', () => toast.remove());
+  }, 3000);
 }
 
-// ---- Utility ----
-function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+/* ── Utility ───────────────────────────────────────────── */
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
-function formatCurrency(val) {
-    return '₱ ' + parseFloat(val).toLocaleString('en-PH', { minimumFractionDigits: 2 });
-}
+/* ── Overlay / Escape close ────────────────────────────── */
+formModal.addEventListener('click',    e => { if (e.target === formModal)    closeFormModal(); });
+confirmModal.addEventListener('click', e => { if (e.target === confirmModal) closeConfirmModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (formModal.classList.contains('open'))    closeFormModal();
+    if (confirmModal.classList.contains('open')) closeConfirmModal();
+  }
+});
 
-function formatDate(dateStr) {
-    if (!dateStr) return '—';
-    var d = new Date(dateStr);
-    return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
-}
+/* ── Event listeners ───────────────────────────────────── */
+addBtn.addEventListener('click', openAdd);
+saveBtn.addEventListener('click', handleSave);
+confirmDeleteBtn.addEventListener('click', handleDelete);
+
+let searchTimer;
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadListings, 300);
+});
+categoryFilter.addEventListener('change', loadListings);
+
+Object.values(fields).forEach(f => {
+  f.addEventListener('keydown', e => { if (e.key === 'Enter') handleSave(); });
+});
+
+/* ─────────────────────────────────────────────────────────
+   SIDEBAR — nav interaction
+───────────────────────────────────────────────────────── */
+const navTooltip   = document.getElementById('navTooltip');
+const notImplModal = document.getElementById('notImplModal');
+const notImplTitle = document.getElementById('notImplTitle');
+
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.module === 'products') {
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      return;
+    }
+    notImplTitle.textContent = btn.dataset.label || 'This module';
+    openModal(notImplModal);
+  });
+});
+
+function closeNotImpl() { closeModal(notImplModal); }
+notImplModal.addEventListener('click', e => { if (e.target === notImplModal) closeNotImpl(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && notImplModal.classList.contains('open')) closeNotImpl();
+});
+
+/* ── Init ──────────────────────────────────────────────── */
+loadListings();
